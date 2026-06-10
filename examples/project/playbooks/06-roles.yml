@@ -1,0 +1,26 @@
+---
+# 06 · Roles
+# Composition with reusable roles: common → webserver → monitoring.
+# Roles bring their own defaults, tasks, handlers, templates and metadata.
+- name: "Provision with roles"
+  hosts: localhost
+  gather_facts: true
+
+  roles:
+    - role: common
+      tags: [common, base]
+
+    - role: webserver
+      tags: [web]
+      vars:
+        listen_port: 8080
+        worker_processes: "{{ max_workers | default(2) }}"
+
+    - role: monitoring
+      tags: [monitoring]
+      when: features.metrics | bool
+
+  post_tasks:
+    - name: Summarise the provisioned stack
+      ansible.builtin.debug:
+        msg: "🚀 {{ app_name }} v{{ app_version }} provisioned under {{ deploy_root }}"

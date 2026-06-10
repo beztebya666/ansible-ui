@@ -1,0 +1,246 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ansible-ui.fullname" . }}
+  labels:
+    {{- include "ansible-ui.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate          # single RWO data volume shared by the pod
+  selector:
+    matchLabels:
+      {{- include "ansible-ui.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ansible-ui.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        # --- runner sidecar: executes ansible-playbook ---
+        - name: runner
+          image: {{ include "ansible-ui.runnerImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: RUNNER_ADDR
+              value: ":8081"
+            - name: DATA_DIR
+              value: /data
+          ports:
+            - name: runner
+              containerPort: 8081
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8081 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8081 }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          {{- with .Values.resources.runner }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        # --- api: REST + WS + serves the UI ---
+        - name: api
+          image: {{ include "ansible-ui.apiImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: API_ADDR
+              value: ":8080"
+            - name: DATA_DIR
+              value: /data
+            - name: RUNNER_URL
+              value: "ws://localhost:8081"
+            - name: RUNNER_HTTP
+              value: "http://localhost:8081"
+            {{- if .Values.runners.token }}
+            # Shared secret extra runner agents present to register/heartbeat.
+            - name: RUNNER_TOKEN
+              value: {{ .Values.runners.token | quote }}
+            {{- end }}
+            {{- if .Values.metrics.token }}
+            # Bearer required on GET /metrics (Prometheus). Empty = open.
+            - name: METRICS_TOKEN
+              value: {{ .Values.metrics.token | quote }}
+            {{- end }}
+            - name: SEED_DEMO
+              value: {{ .Values.seedDemo | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            - name: COOKIE_SECURE
+              value: {{ .Values.auth.cookieSecure | quote }}
+            - name: APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ansible-ui.secretName" . }}
+                  key: app-secret
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ansible-ui.secretName" . }}
+                  key: database-url
+            {{- if .Values.auth.ldap.enabled }}
+            - { name: LDAP_ENABLED, value: "true" }
+            - { name: LDAP_URL, value: {{ .Values.auth.ldap.url | quote }} }
+            - { name: LDAP_START_TLS, value: {{ .Values.auth.ldap.startTLS | quote }} }
+            - { name: LDAP_BIND_DN, value: {{ .Values.auth.ldap.bindDN | quote }} }
+            - { name: LDAP_USER_BASE_DN, value: {{ .Values.auth.ldap.userBaseDN | quote }} }
+            - { name: LDAP_USER_FILTER, value: {{ .Values.auth.ldap.userFilter | quote }} }
+            - { name: LDAP_EMAIL_ATTR, value: {{ .Values.auth.ldap.emailAttr | quote }} }
+            - { name: LDAP_DEFAULT_ROLE, value: {{ .Values.auth.ldap.defaultRole | quote }} }
+            - name: LDAP_BIND_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ansible-ui.secretName" . }}
+                  key: ldap-bind-password
+                  optional: true
+            {{- end }}
+            {{- if .Values.auth.oidc.enabled }}
+            - { name: OIDC_ENABLED, value: "true" }
+            - { name: OIDC_ISSUER, value: {{ .Values.auth.oidc.issuer | quote }} }
+            - { name: OIDC_CLIENT_ID, value: {{ .Values.auth.oidc.clientID | quote }} }
+            - { name: OIDC_REDIRECT_URL, value: {{ .Values.auth.oidc.redirectURL | quote }} }
+            - { name: OIDC_USERNAME_CLAIM, value: {{ .Values.auth.oidc.usernameClaim | quote }} }
+            - { name: OIDC_DEFAULT_ROLE, value: {{ .Values.auth.oidc.defaultRole | quote }} }
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ansible-ui.secretName" . }}
+                  key: oidc-client-secret
+                  optional: true
+            {{- end }}
+            {{- if .Values.auth.github.enabled }}
+            - { name: GITHUB_CLIENT_ID, value: {{ .Values.auth.github.clientID | quote }} }
+            - { name: GITHUB_REDIRECT_URL, value: {{ .Values.auth.github.redirectURL | quote }} }
+            - name: GITHUB_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ansible-ui.secretName" . }}
+                  key: github-client-secret
+                  optional: true
+            {{- end }}
+            {{- if .Values.auth.bitbucket.enabled }}
+            - { name: BITBUCKET_CLIENT_ID, value: {{ .Values.auth.bitbucket.clientID | quote }} }
+            - { name: BITBUCKET_REDIRECT_URL, value: {{ .Values.auth.bitbucket.redirectURL | quote }} }
+            - name: BITBUCKET_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ansible-ui.secretName" . }}
+                  key: bitbucket-client-secret
+                  optional: true
+            {{- end }}
+            {{- if .Values.auth.oauthDefaultRole }}
+            - { name: OAUTH_DEFAULT_ROLE, value: {{ .Values.auth.oauthDefaultRole | quote }} }
+            {{- end }}
+            {{- if .Values.auth.radius.enabled }}
+            - { name: RADIUS_ENABLED, value: "true" }
+            - { name: RADIUS_SERVER, value: {{ .Values.auth.radius.server | quote }} }
+            - { name: RADIUS_NAS_ID, value: {{ .Values.auth.radius.nasID | quote }} }
+            - { name: RADIUS_DEFAULT_ROLE, value: {{ .Values.auth.radius.defaultRole | quote }} }
+            - name: RADIUS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ansible-ui.secretName" . }}
+                  key: radius-secret
+                  optional: true
+            {{- end }}
+            {{- if .Values.auth.tacacs.enabled }}
+            - { name: TACACS_ENABLED, value: "true" }
+            - { name: TACACS_SERVER, value: {{ .Values.auth.tacacs.server | quote }} }
+            - { name: TACACS_DEFAULT_ROLE, value: {{ .Values.auth.tacacs.defaultRole | quote }} }
+            - name: TACACS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ansible-ui.secretName" . }}
+                  key: tacacs-secret
+                  optional: true
+            {{- end }}
+            {{- if .Values.auth.saml.enabled }}
+            - { name: SAML_ENABLED, value: "true" }
+            - { name: SAML_IDP_METADATA_URL, value: {{ .Values.auth.saml.idpMetadataURL | quote }} }
+            - { name: SAML_ROOT_URL, value: {{ .Values.auth.saml.rootURL | quote }} }
+            - { name: SAML_ENTITY_ID, value: {{ .Values.auth.saml.entityID | quote }} }
+            - { name: SAML_USERNAME_ATTR, value: {{ .Values.auth.saml.usernameAttr | quote }} }
+            - { name: SAML_DEFAULT_ROLE, value: {{ .Values.auth.saml.defaultRole | quote }} }
+            {{- if .Values.auth.saml.spCert }}
+            - { name: SAML_SP_CERT, value: {{ .Values.auth.saml.spCert | quote }} }
+            {{- end }}
+            - name: SAML_SP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "ansible-ui.secretName" . }}
+                  key: saml-sp-key
+                  optional: true
+            {{- end }}
+            - name: DOCS_ENABLED
+              value: {{ .Values.docsEnabled | quote }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /api/health, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: 8080 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          {{- with .Values.resources.api }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: data
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "ansible-ui.fullname" . }}-data
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- if .Values.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ansible-ui.fullname" . }}-data
+  labels:
+    {{- include "ansible-ui.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass }}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,31 @@
+# Managed by ansible-ui · role: webserver · host {{ inventory_hostname }}
+worker_processes {{ worker_processes }};
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    sendfile on;
+    keepalive_timeout 65;
+
+    server {
+        listen {{ listen_port }};
+        server_name {{ server_name }};
+        root {{ doc_root }};
+        index index.html;
+
+        location / {
+            try_files $uri $uri/ =404;
+        }
+
+        location /healthz {
+            return 200 "ok\n";
+        }
+{% if features.metrics | default(false) | bool %}
+        location /metrics {
+            stub_status on;
+        }
+{% endif %}
+    }
+}

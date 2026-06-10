@@ -1,0 +1,46 @@
+---
+# 07 · Error handling — block / rescue / always
+# Shows graceful recovery. The "failed" task is caught by rescue, so the
+# play still ends green — watch the colours switch in the terminal.
+- name: "Resilient error handling"
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: A guarded unit of work
+      block:
+        - name: This one succeeds
+          ansible.builtin.debug:
+            msg: "step 1/3 ok"
+
+        - name: Deliberately fail to trigger rescue
+          ansible.builtin.command: "/bin/false"
+          changed_when: false
+
+        - name: This is skipped because the previous task failed
+          ansible.builtin.debug:
+            msg: "step 3/3 (you will not see this)"
+
+      rescue:
+        - name: Recover from the failure
+          ansible.builtin.debug:
+            msg: "🛟 rescue: caught '{{ ansible_failed_task.name }}' — applying fallback"
+
+        - name: Record that we recovered
+          ansible.builtin.set_fact:
+            recovered: true
+
+      always:
+        - name: Always runs (cleanup / audit)
+          ansible.builtin.debug:
+            msg: "🧹 always: cleanup complete (recovered={{ recovered | default(false) }})"
+
+    - name: Tolerate a non-critical failure inline
+      ansible.builtin.command: "/bin/false"
+      register: probe
+      failed_when: false
+      changed_when: false
+
+    - name: Decide based on a soft failure
+      ansible.builtin.debug:
+        msg: "probe exited {{ probe.rc }} — treating as non-fatal"

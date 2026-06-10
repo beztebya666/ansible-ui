@@ -1,0 +1,4 @@
+---
+- name: reload nginx
+  ansible.builtin.debug:
+    msg: "♻️  reloading nginx on {{ inventory_hostname }}:{{ listen_port }}"

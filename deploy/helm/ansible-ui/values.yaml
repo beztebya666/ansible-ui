@@ -1,0 +1,144 @@
+# Default values for ansible-ui.
+# The app is two containers in one pod: `api` (serves the UI + REST + WS) and a
+# `runner` sidecar (executes ansible-playbook). They share the /data volume.
+
+# Multi-replica safe: the scheduler is leader-elected and the dispatch queue +
+# runner capacity live in Postgres (only the leader dispatches, capacity is shared).
+# The one remaining caveat for active-active >1 replicas is run-stream routing —
+# a run's /ws/runs/{id} must reach the replica streaming it (use sticky sessions on
+# the ingress). See ROADMAP "High availability".
+replicaCount: 1
+
+image:
+  registry: ansible-ui     # set to your registry, e.g. ghcr.io/acme
+  apiRepository: api
+  runnerRepository: runner
+  tag: latest
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+# Secret used to encrypt Key Store credentials at rest. CHANGE THIS.
+# Or set existingSecret to a Secret that contains keys: app-secret, database-url.
+appSecret: "please-change-this-secret-in-production"
+existingSecret: ""
+
+auth:
+  cookieSecure: false      # set true when serving over TLS
+  # Directory (LDAP) authentication — falls back from local accounts.
+  ldap:
+    enabled: false
+    url: "ldap://ldap:389"
+    startTLS: false
+    bindDN: ""              # service account for search (optional)
+    bindPassword: ""        # stored in the chart Secret
+    userBaseDN: "ou=people,dc=example,dc=org"
+    userFilter: "(uid=%s)"
+    emailAttr: "mail"
+    defaultRole: "user"
+  # OpenID Connect SSO.
+  oidc:
+    enabled: false
+    issuer: ""              # e.g. https://keycloak.example/realms/main
+    clientID: ""
+    clientSecret: ""        # stored in the chart Secret
+    redirectURL: ""         # https://ansible-ui.example/api/auth/oidc/callback
+    usernameClaim: "preferred_username"
+    defaultRole: "user"
+  # GitHub OAuth sign-in ("Sign in with GitHub").
+  github:
+    enabled: false
+    clientID: ""
+    clientSecret: ""        # stored in the chart Secret
+    redirectURL: ""         # https://ansible-ui.example/api/auth/github/callback
+  # Bitbucket OAuth sign-in.
+  bitbucket:
+    enabled: false
+    clientID: ""
+    clientSecret: ""        # stored in the chart Secret
+    redirectURL: ""         # https://ansible-ui.example/api/auth/bitbucket/callback
+  oauthDefaultRole: "user"  # role for users created via GitHub/Bitbucket
+  # RADIUS auth (RFC 2865 PAP). secret is stored in the chart Secret.
+  radius:
+    enabled: false
+    server: ""              # host:1812
+    secret: ""              # shared secret → chart Secret (radius-secret)
+    nasID: "ansible-ui"
+    defaultRole: "user"
+  # TACACS+ auth (RFC 8907 ASCII). secret is stored in the chart Secret.
+  tacacs:
+    enabled: false
+    server: ""              # host:49
+    secret: ""              # shared key → chart Secret (tacacs-secret)
+    defaultRole: "user"
+  # SAML 2.0 SP. The SP private key is stored in the chart Secret; cert may be inline.
+  saml:
+    enabled: false
+    idpMetadataURL: ""      # IdP metadata URL
+    rootURL: ""             # https://ansible-ui.example (SP external URL)
+    entityID: ""            # SP entity id (default: rootURL/api/auth/saml/metadata)
+    usernameAttr: ""        # SAML attribute → username (empty = NameID)
+    defaultRole: "user"
+    spCert: ""              # optional inline SP cert PEM (auto-generated if empty)
+    spKey: ""               # optional SP private key PEM → chart Secret (saml-sp-key)
+
+# Built-in API Explorer (GET /api/meta/endpoints). Disable to hide it in prod.
+docsEnabled: true
+
+# Extra environment variables passed verbatim to the api container (list of
+# {name,value} / {name,valueFrom}). Use for anything not covered above.
+extraEnv: []
+
+seedDemo: true
+logLevel: info             # info | debug
+
+# Bundled PostgreSQL (set enabled:false to use an external database).
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  user: ansible
+  password: ansible
+  database: ansible_ui
+  storage: 5Gi
+  storageClass: ""
+  resources: {}
+
+externalDatabase:
+  url: ""                  # postgres://user:pass@host:5432/db?sslmode=disable
+
+# Persist /data (projects, repo checkouts). If disabled, an emptyDir is used.
+persistence:
+  enabled: true
+  size: 5Gi
+  storageClass: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  host: ansible-ui.local
+  annotations: {}
+  tls: []                  # [{secretName: ansible-ui-tls, hosts: [ansible-ui.local]}]
+
+# Distributed runners. The bundled runner is built-in; extra runner agents
+# self-register with API_URL + RUNNER_ADVERTISE_URL + RUNNER_TAGS and present
+# this token (leave empty to allow open registration in trusted networks).
+runners:
+  token: ""
+
+# Prometheus metrics at GET /metrics (outside /api, so the session guard does not
+# apply). Leave the token empty to keep it open (restrict at the network/ingress
+# level) or set it to require an `Authorization: Bearer <token>` header.
+metrics:
+  token: ""
+
+resources:
+  api: {}
+  runner: {}
+
+podSecurityContext: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

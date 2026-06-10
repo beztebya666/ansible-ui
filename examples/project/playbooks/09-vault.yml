@@ -1,0 +1,30 @@
+---
+# 09 · Secrets with Ansible Vault
+# vault/secrets.yml can be encrypted with `ansible-vault encrypt` (the demo
+# ships a .vault_pass so it decrypts automatically). no_log keeps secrets out
+# of the terminal even at -vvv.
+- name: "Handle secrets safely"
+  hosts: localhost
+  gather_facts: false
+
+  vars_files:
+    - ../vault/secrets.yml
+
+  tasks:
+    - name: Use a secret without ever printing it
+      ansible.builtin.copy:
+        dest: "{{ deploy_root }}/.htpasswd"
+        content: "{{ vault_admin_user }}:{{ vault_admin_password | password_hash('sha512') }}\n"
+        mode: "0600"
+      no_log: true
+
+    - name: Prove the secret is loaded (masked)
+      ansible.builtin.debug:
+        msg: >-
+          admin user is '{{ vault_admin_user }}', password length is
+          {{ vault_admin_password | length }} (value hidden)
+
+    - name: Show that no_log protects sensitive output
+      ansible.builtin.debug:
+        msg: "this task would have leaked '{{ vault_api_token }}' — but no_log hides it"
+      no_log: true

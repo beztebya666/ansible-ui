@@ -1,0 +1,15 @@
+{# Rendered by playbook 04 into {{ deploy_root }}/motd #}
+===============================================================
+ {{ app_name | upper }} — {{ app_version }}
+===============================================================
+ host        : {{ ansible_facts['hostname'] | default(inventory_hostname) }}
+ environment : {{ env | default('demo') }}
+ maintainer  : {{ maintainer }}
+ generated   : {{ ansible_facts['date_time']['iso8601'] | default('n/a') }}
+ features    : {% for k, v in features.items() %}{{ k }}={{ v | lower }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+ packages    :
+{% for p in packages %}
+   - {{ "%-12s"|format(p.name) }} → {{ p.state }}
+{% endfor %}
+===============================================================

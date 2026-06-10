@@ -1,0 +1,26 @@
+---
+# Variables available to every host in the inventory.
+app_name: "ansible-ui-demo"
+app_version: "1.4.2"
+deploy_root: "/tmp/ansible-ui-demo"
+maintainer: "platform@ansible-ui.dev"
+
+# Feature flags exercised by the conditional examples.
+features:
+  metrics: true
+  tracing: false
+  cache: true
+
+# A small dataset used by loop examples.
+packages:
+  - name: nginx
+    state: present
+  - name: redis
+    state: present
+  - name: postgresql
+    state: present
+
+users:
+  - { name: alice, role: admin, shell: /bin/bash }
+  - { name: bob, role: deploy, shell: /bin/bash }
+  - { name: carol, role: readonly, shell: /bin/sh }

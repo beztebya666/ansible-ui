@@ -1,0 +1,26 @@
+---
+# 01 · Hello, Ansible
+# The simplest possible playbook: prove connectivity and print a banner.
+# Run it to see ansible-ui's live terminal light up with real ANSI colour.
+- name: "Hello, Ansible"
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Ping the control node
+      ansible.builtin.ping:
+
+    - name: Greet the operator
+      ansible.builtin.debug:
+        msg: >-
+          👋 Hello from {{ inventory_hostname }} — ansible-ui is wired up
+          correctly. Try the other playbooks for loops, roles, vault and more.
+
+    - name: Show a tiny banner
+      ansible.builtin.debug:
+        msg: "{{ item }}"
+      loop:
+        - "┌────────────────────────────────────────────┐"
+        - "│   ansible-ui · the Ansible control plane     │"
+        - "│   fast · minimal · native terminal           │"
+        - "└────────────────────────────────────────────┘"

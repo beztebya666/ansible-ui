@@ -1,0 +1,8 @@
+apiVersion: v2
+name: ansible-ui
+description: A fast, minimal Ansible control plane with a native live terminal.
+type: application
+version: 0.3.0
+appVersion: "1.0.0"
+keywords: [ansible, automation, semaphore, control-plane]
+home: https://github.com/nikiv/ansible-ui

@@ -1,0 +1,7 @@
+---
+scrape_interval: "15s"
+metrics_port: 9100
+monitoring_root: "{{ deploy_root }}/monitoring"
+scrape_targets:
+  - localhost:9100
+  - localhost:8080

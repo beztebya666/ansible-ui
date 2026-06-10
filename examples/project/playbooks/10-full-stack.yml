@@ -1,0 +1,57 @@
+---
+# 10 · End-to-end "deployment"
+# Ties everything together: pre-flight checks → roles (tag-driven) →
+# verification → recap. This is the playbook to demo the live terminal with.
+- name: "Full-stack deployment"
+  hosts: localhost
+  gather_facts: true
+  serial: 1
+
+  pre_tasks:
+    - name: Pre-flight — assert we are ready to deploy
+      ansible.builtin.assert:
+        that:
+          - deploy_root is defined
+          - app_version is version('1.0.0', '>=')
+        success_msg: "pre-flight checks passed"
+      tags: [always]
+
+    - name: Announce the rollout
+      ansible.builtin.debug:
+        msg: "🚢 deploying {{ app_name }} {{ app_version }} to {{ env | default('demo') }}"
+      tags: [always]
+
+  roles:
+    - role: common
+      tags: [base]
+    - role: webserver
+      tags: [web]
+    - role: monitoring
+      tags: [observability]
+      when: features.metrics | bool
+
+  tasks:
+    - name: Verify the rendered web config exists
+      ansible.builtin.stat:
+        path: "{{ deploy_root }}/web/nginx.conf"
+      register: webconf
+      tags: [verify]
+
+    - name: Gate the release on verification
+      ansible.builtin.assert:
+        that: webconf.stat.exists
+        success_msg: "✅ web config present — release verified"
+        fail_msg: "❌ web config missing — rolling back"
+      tags: [verify]
+
+  post_tasks:
+    - name: Deployment recap
+      ansible.builtin.debug:
+        msg:
+          - "════════════════════════════════════════════"
+          - " {{ app_name }} {{ app_version }} — DEPLOYED"
+          - " root:    {{ deploy_root }}"
+          - " host:    {{ inventory_hostname }}"
+          - " metrics: {{ features.metrics | bool }}"
+          - "════════════════════════════════════════════"
+      tags: [always]

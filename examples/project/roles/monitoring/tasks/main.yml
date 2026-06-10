@@ -1,0 +1,17 @@
+---
+# monitoring · drop a prometheus scrape config (rendered only).
+- name: Ensure the monitoring directory exists
+  ansible.builtin.file:
+    path: "{{ monitoring_root }}"
+    state: directory
+    mode: "0755"
+
+- name: Render the prometheus configuration
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: "{{ monitoring_root }}/prometheus.yml"
+    mode: "0644"
+
+- name: Report monitoring is configured
+  ansible.builtin.debug:
+    msg: "📈 monitoring scrapes {{ scrape_targets | length }} targets every {{ scrape_interval }}"

@@ -1,0 +1,4 @@
+---
+# Host-scoped overrides for localhost.
+node_tier: "control-plane"
+max_workers: 4

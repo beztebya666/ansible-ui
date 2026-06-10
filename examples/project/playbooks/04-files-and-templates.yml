@@ -1,0 +1,70 @@
+---
+# 04 · Files, templates, line edits and handlers
+# Everything is written under {{ deploy_root }} (/tmp) so it is safe to run
+# repeatedly and needs no privileges. Run twice to watch idempotency turn
+# "changed" into "ok".
+- name: "Files and templates"
+  hosts: localhost
+  gather_facts: true
+
+  handlers:
+    - name: reload app
+      ansible.builtin.debug:
+        msg: "🔁 handler fired: reloading {{ app_name }}"
+
+  tasks:
+    - name: Ensure the deploy tree exists
+      ansible.builtin.file:
+        path: "{{ deploy_root }}/conf.d"
+        state: directory
+        mode: "0755"
+
+    - name: Drop a static file
+      ansible.builtin.copy:
+        dest: "{{ deploy_root }}/VERSION"
+        content: "{{ app_name }} {{ app_version }}\n"
+        mode: "0644"
+      notify: reload app
+
+    - name: Render a templated MOTD
+      ansible.builtin.template:
+        src: ../templates/motd.j2
+        dest: "{{ deploy_root }}/motd"
+        mode: "0644"
+      notify: reload app
+
+    - name: Ensure a config line is present
+      ansible.builtin.lineinfile:
+        path: "{{ deploy_root }}/app.conf"
+        line: "max_workers = {{ max_workers | default(2) }}"
+        regexp: "^max_workers"
+        create: true
+        mode: "0644"
+
+    - name: Manage a marked config block
+      ansible.builtin.blockinfile:
+        path: "{{ deploy_root }}/app.conf"
+        marker: "# {mark} ANSIBLE FEATURE FLAGS"
+        block: |
+          metrics = {{ features.metrics | lower }}
+          tracing = {{ features.tracing | lower }}
+          cache   = {{ features.cache | lower }}
+
+    - name: Stat the rendered MOTD
+      ansible.builtin.stat:
+        path: "{{ deploy_root }}/motd"
+      register: motd_stat
+
+    - name: Report on what we wrote
+      ansible.builtin.debug:
+        msg: "motd is {{ motd_stat.stat.size }} bytes, mode {{ motd_stat.stat.mode }}"
+
+    - name: Find everything we just deployed
+      ansible.builtin.find:
+        paths: "{{ deploy_root }}"
+        recurse: true
+      register: deployed
+
+    - name: List the deployed artifacts
+      ansible.builtin.debug:
+        msg: "{{ deployed.files | map(attribute='path') | list }}"

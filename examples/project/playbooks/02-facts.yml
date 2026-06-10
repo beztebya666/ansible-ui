@@ -1,0 +1,35 @@
+---
+# 02 · Gathering facts
+# Discover the managed node and expose a custom fact.
+- name: "Gather and display facts"
+  hosts: localhost
+  gather_facts: true
+
+  tasks:
+    - name: Summarise the system
+      ansible.builtin.debug:
+        msg: >-
+          {{ ansible_facts['distribution'] | default('unknown') }}
+          {{ ansible_facts['distribution_version'] | default('') }} ·
+          {{ ansible_facts['architecture'] | default('?') }} ·
+          {{ ansible_facts['processor_vcpus'] | default(ansible_facts['processor_cores'] | default('?')) }} vCPU ·
+          kernel {{ ansible_facts['kernel'] | default('?') }}
+
+    - name: Show key network + memory facts
+      ansible.builtin.debug:
+        msg:
+          - "hostname:   {{ ansible_facts['hostname'] | default('?') }}"
+          - "default_ip: {{ ansible_facts['default_ipv4']['address'] | default('n/a') }}"
+          - "memtotal:   {{ ansible_facts['memtotal_mb'] | default('?') }} MB"
+          - "python:     {{ ansible_facts['python_version'] | default('?') }}"
+          - "date_time:  {{ ansible_facts['date_time']['iso8601'] | default('?') }}"
+
+    - name: Register a custom fact
+      # app_name / app_version come from an Environment or extra-vars when set;
+      # fall back to sensible defaults so the demo runs out-of-the-box.
+      ansible.builtin.set_fact:
+        deploy_signature: "{{ app_name | default('ansible-ui') }}-{{ app_version | default('1.0.0') }}@{{ ansible_facts['nodename'] | default('node') }}"
+
+    - name: Reveal the custom fact
+      ansible.builtin.debug:
+        var: deploy_signature

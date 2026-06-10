@@ -1,0 +1,38 @@
+---
+# 05 · Handlers, notify and flush_handlers
+# Handlers run once, at the end, and only when notified by a "changed" task.
+- name: "Handlers and notifications"
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    config_path: "{{ deploy_root }}/service.conf"
+
+  handlers:
+    - name: validate config
+      ansible.builtin.debug:
+        msg: "🔎 validating {{ config_path }}"
+      listen: "config changed"
+
+    - name: restart service
+      ansible.builtin.debug:
+        msg: "♻️  restarting {{ app_name }}"
+      listen: "config changed"
+
+  tasks:
+    - name: Write a config value
+      ansible.builtin.copy:
+        dest: "{{ config_path }}"
+        content: |
+          # generated {{ '%Y-%m-%dT%H:%M:%S' | strftime }}
+          listen = 0.0.0.0:8080
+          workers = {{ max_workers | default(2) }}
+        mode: "0644"
+      notify: "config changed"
+
+    - name: Force handlers to run right now
+      ansible.builtin.meta: flush_handlers
+
+    - name: Continue after handlers have fired
+      ansible.builtin.debug:
+        msg: "✅ config applied and service bounced — continuing"

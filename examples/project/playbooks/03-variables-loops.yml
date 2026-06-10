@@ -1,0 +1,51 @@
+---
+# 03 · Variables, loops, conditionals, register & assert
+- name: "Variables, loops and conditionals"
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    threshold: 2
+    greeting: "Provisioning {{ app_name }} v{{ app_version }}"
+
+  tasks:
+    - name: Print the greeting
+      ansible.builtin.debug:
+        var: greeting
+
+    - name: Loop over the package list
+      ansible.builtin.debug:
+        msg: "would ensure {{ item.name }} is {{ item.state }}"
+      loop: "{{ packages }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Loop with index and a conditional
+      ansible.builtin.debug:
+        msg: "user #{{ idx }} → {{ item.name }} ({{ item.role }})"
+      loop: "{{ users }}"
+      loop_control:
+        index_var: idx
+        label: "{{ item.name }}"
+      when: item.role != 'readonly'
+
+    - name: Compute something and register the result
+      ansible.builtin.command: "echo {{ users | length }}"
+      changed_when: false
+      register: user_count
+
+    - name: Branch on the registered value
+      ansible.builtin.debug:
+        msg: >-
+          {{ 'plenty of users (' ~ user_count.stdout ~ ')'
+             if user_count.stdout | int > threshold
+             else 'only ' ~ user_count.stdout ~ ' users' }}
+
+    - name: Assert our invariants hold
+      ansible.builtin.assert:
+        that:
+          - app_version is version('1.0.0', '>=')
+          - packages | length == 3
+          - features.metrics | bool
+        success_msg: "✅ all invariants satisfied"
+        fail_msg: "❌ invariant violated — check group_vars/all.yml"

@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.git
+**/.idea
+**/.vscode
+bin
+data
+*.log
+*.md
+!README.md
+web/node_modules
+web/dist

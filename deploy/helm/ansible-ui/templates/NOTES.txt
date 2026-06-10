@@ -1,0 +1,22 @@
+ansible-ui {{ .Chart.AppVersion }} is deploying.
+
+The app is one pod with two containers: api (UI + REST + WS) and the runner sidecar.
+
+{{- if .Values.ingress.enabled }}
+Open: http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}
+{{- else if eq .Values.service.type "LoadBalancer" }}
+Get the external IP:
+  kubectl get svc {{ include "ansible-ui.fullname" . }} -n {{ .Release.Namespace }} -w
+{{- else }}
+Port-forward to reach it locally:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "ansible-ui.fullname" . }} 8080:{{ .Values.service.port }}
+  open http://localhost:8080
+{{- end }}
+
+On first load, create the admin account (first-run setup).
+
+{{- if eq .Values.appSecret "please-change-this-secret-in-production" }}
+
+⚠  You are using the default APP_SECRET. Set a strong `appSecret` (or `existingSecret`)
+   in production — it encrypts your Key Store credentials.
+{{- end }}

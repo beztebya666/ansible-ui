@@ -1,0 +1,9 @@
+---
+galaxy_info:
+  role_name: webserver
+  author: ansible-ui
+  description: Render an nginx config and landing page for the demo app.
+  license: MIT
+  min_ansible_version: "2.12"
+dependencies:
+  - role: common

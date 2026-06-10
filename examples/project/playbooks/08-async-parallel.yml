@@ -1,0 +1,36 @@
+---
+# 08 · Asynchronous tasks & parallelism
+# Fire long-running work in the background, do other things, then collect.
+- name: "Async and parallelism"
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Kick off three background jobs
+      ansible.builtin.command: "sleep {{ item }}"
+      async: 30
+      poll: 0
+      changed_when: false
+      register: jobs
+      loop: [2, 3, 4]
+      loop_control:
+        label: "sleep {{ item }}s"
+
+    - name: Meanwhile, do useful synchronous work
+      ansible.builtin.debug:
+        msg: "background jobs launched — continuing without blocking"
+
+    - name: Wait for every background job to finish
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      register: poll_results
+      until: poll_results.finished
+      retries: 20
+      delay: 1
+      loop: "{{ jobs.results }}"
+      loop_control:
+        label: "job {{ item.ansible_job_id }}"
+
+    - name: Confirm all jobs completed
+      ansible.builtin.debug:
+        msg: "✅ {{ poll_results.results | selectattr('finished') | list | length }} async jobs finished"

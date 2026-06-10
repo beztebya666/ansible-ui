@@ -1,0 +1,6 @@
+---
+listen_port: 8080
+worker_processes: 2
+server_name: "ansible-ui.local"
+web_root: "{{ deploy_root }}/web"
+doc_root: "{{ deploy_root }}/web/html"

@@ -1,0 +1,34 @@
+---
+# webserver · render an nginx config + landing page (no real install needed).
+- name: Ensure web directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ web_root }}"
+    - "{{ doc_root }}"
+
+- name: Render the nginx configuration
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: "{{ web_root }}/nginx.conf"
+    mode: "0644"
+  notify: reload nginx
+
+- name: Render the landing page
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: "{{ doc_root }}/index.html"
+    mode: "0644"
+  notify: reload nginx
+
+- name: Validate the rendered config is non-empty
+  ansible.builtin.stat:
+    path: "{{ web_root }}/nginx.conf"
+  register: nginx_conf
+
+- name: Assert the config rendered
+  ansible.builtin.assert:
+    that: nginx_conf.stat.size > 0
+    success_msg: "nginx.conf rendered ({{ nginx_conf.stat.size }} bytes)"

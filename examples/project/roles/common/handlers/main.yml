@@ -1,0 +1,4 @@
+---
+- name: common refresh banner
+  ansible.builtin.debug:
+    msg: "🪧 banner refreshed for {{ inventory_hostname }}"

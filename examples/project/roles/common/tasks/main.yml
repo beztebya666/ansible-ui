@@ -1,0 +1,23 @@
+---
+# common · baseline layout every host gets.
+- name: Create the base directory layout
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ common_dirs }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Install the managed banner
+  ansible.builtin.template:
+    src: banner.j2
+    dest: "{{ deploy_root }}/etc/banner"
+    mode: "0644"
+  notify: common refresh banner
+
+- name: Record the applied role version
+  ansible.builtin.copy:
+    dest: "{{ deploy_root }}/etc/common.release"
+    content: "common applied for {{ app_name }} {{ app_version }} @ {{ common_timezone }}\n"
+    mode: "0644"

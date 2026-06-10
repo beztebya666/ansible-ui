@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Self-hosted JetBrains Mono — the FULL font (not a latin subset), so box-drawing
+   (│ ─ ┌ ┐ └ ┘), powerline and symbols share one metric with the letters. This
+   is what keeps ASCII-art / aligned columns from drifting in the run log. */
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/JetBrainsMono-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./assets/fonts/JetBrainsMono-SemiBold.woff2") format("woff2");
+}
+
+@layer base {
+  /* Dark theme (default). Colours are space-separated RGB channels consumed by
+     the Tailwind palette as rgb(var(--c-x) / <alpha>). */
+  :root,
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --c-bg: 10 12 16;
+    --c-surface: 13 16 22;
+    --c-panel: 16 20 28;
+    --c-panel2: 20 25 38;
+    --c-border: 27 33 48;
+    --c-border-strong: 40 48 66;
+    --c-ink: 230 233 239;
+    --c-ink-dim: 154 164 178;
+    --c-ink-faint: 91 102 119;
+    --c-accent: 52 211 153;
+    --c-accent-dim: 14 58 44;
+    --c-cyan: 34 211 238;
+    --c-success: 52 211 153;
+    --c-danger: 248 113 113;
+    --c-warn: 251 191 36;
+    --c-info: 122 162 247;
+    --c-running: 34 211 238;
+    --scrollbar: 34 42 58;
+  }
+
+  /* Light theme. */
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --c-bg: 247 248 250;
+    --c-surface: 255 255 255;
+    --c-panel: 255 255 255;
+    --c-panel2: 241 243 247;
+    --c-border: 226 230 237;
+    --c-border-strong: 203 210 222;
+    --c-ink: 17 24 39;
+    --c-ink-dim: 71 85 105;
+    --c-ink-faint: 130 140 156;
+    --c-accent: 5 150 105;
+    --c-accent-dim: 209 250 229;
+    --c-cyan: 8 145 178;
+    --c-success: 5 150 105;
+    --c-danger: 220 38 38;
+    --c-warn: 217 119 6;
+    --c-info: 37 99 235;
+    --c-running: 8 145 178;
+    --scrollbar: 203 210 222;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: rgb(var(--c-accent) / 0.28);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--scrollbar)) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgb(var(--scrollbar));
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--c-border-strong));
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-border bg-panel shadow-soft;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium
+      transition-colors duration-150 select-none disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-bg hover:bg-emerald-300;
+  }
+  .btn-ghost {
+    @apply btn text-ink-dim hover:text-ink hover:bg-white/5 border border-transparent;
+  }
+  .btn-outline {
+    @apply btn border border-border-strong text-ink-dim hover:text-ink hover:border-ink-faint;
+  }
+  .btn-danger {
+    @apply btn bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20;
+  }
+  .input {
+    @apply w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-ink
+      placeholder:text-ink-faint outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/30;
+  }
+  .label {
+    @apply block text-xs font-medium uppercase tracking-wide text-ink-faint mb-1.5;
+  }
+  .nav-link {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-ink-dim
+      transition-colors hover:bg-white/5 hover:text-ink;
+  }
+  .nav-link-active {
+    @apply bg-accent/10 text-accent hover:bg-accent/10 hover:text-accent;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-0.5
+      text-xs font-medium text-ink-dim;
+  }
+}
+
+/* xterm container fills its parent and matches the app surface */
+.xterm-host {
+  height: 100%;
+  width: 100%;
+}
+.xterm {
+  padding: 14px 16px;
+  height: 100%;
+}
+.xterm-viewport::-webkit-scrollbar {
+  width: 10px;
+}
+.xterm .xterm-viewport {
+  background-color: transparent !important;
+}

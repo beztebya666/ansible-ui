@@ -1,0 +1,14 @@
+# Managed by ansible-ui · role: monitoring
+global:
+  scrape_interval: {{ scrape_interval }}
+  external_labels:
+    app: {{ app_name }}
+    env: {{ env | default('demo') }}
+
+scrape_configs:
+  - job_name: {{ app_name }}
+    static_configs:
+      - targets:
+{% for t in scrape_targets %}
+          - "{{ t }}"
+{% endfor %}

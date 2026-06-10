@@ -1,0 +1,9 @@
+---
+# Defaults for the `common` role (lowest precedence — override anywhere).
+common_timezone: "UTC"
+common_banner: "Managed by ansible-ui — do not edit by hand"
+common_dirs:
+  - "{{ deploy_root }}"
+  - "{{ deploy_root }}/bin"
+  - "{{ deploy_root }}/etc"
+  - "{{ deploy_root }}/log"

@@ -1,0 +1,8 @@
+name: ansible-ui-demo
+runtime: yaml
+description: >-
+  A localhost-safe Pulumi demo. It uses the built-in YAML runtime (no extra
+  language toolchain) and declares no cloud resources, so `pulumi preview`
+  runs anywhere with no provider plugins or credentials.
+outputs:
+  message: Hello from Pulumi · ansible-ui

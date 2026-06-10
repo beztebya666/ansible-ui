@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ app_name }} — {{ app_version }}</title>
+  </head>
+  <body>
+    <h1>{{ app_name }}</h1>
+    <p>Version {{ app_version }} · deployed by ansible-ui to
+       <strong>{{ inventory_hostname }}</strong>.</p>
+    <ul>
+      <li>environment: {{ env | default('demo') }}</li>
+      <li>listen: {{ listen_port }}</li>
+      <li>generated: {{ ansible_facts['date_time']['iso8601'] | default('n/a') }}</li>
+    </ul>
+  </body>
+</html>
