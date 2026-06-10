@@ -1,6 +1,8 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, HashRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Layout } from "./components/Layout";
+import { DemoBanner } from "./components/DemoBanner";
+import { isDemo } from "./lib/demo";
 import { FeedbackProvider } from "./components/feedback";
 import { LauncherProvider } from "./components/Launcher";
 import { EventsProvider } from "./lib/events";
@@ -84,16 +86,20 @@ function Gate() {
 }
 
 export function App() {
+  // GitHub Pages serves under a subpath with no SPA fallback, so the demo build
+  // uses hash routing (deep links / refresh work without server rewrites).
+  const Router = isDemo() ? HashRouter : BrowserRouter;
   return (
     <QueryClientProvider client={queryClient}>
       <ProjectProvider>
         <PrefsProvider>
           <FeedbackProvider>
-            <BrowserRouter>
+            <Router>
               <AuthProvider>
                 <Gate />
               </AuthProvider>
-            </BrowserRouter>
+            </Router>
+            {isDemo() && <DemoBanner />}
           </FeedbackProvider>
         </PrefsProvider>
       </ProjectProvider>

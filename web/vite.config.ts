@@ -5,7 +5,11 @@ import react from "@vitejs/plugin-react";
 // SPA is served by nginx, which proxies /api and /ws to the api container.
 const target = process.env.VITE_API_TARGET || "http://localhost:8080";
 
+// For the GitHub Pages demo build we serve under /ansible-ui/ — set VITE_BASE.
+const base = process.env.VITE_BASE || "/";
+
 export default defineConfig({
+  base,
   plugins: [react()],
   server: {
     host: "0.0.0.0",

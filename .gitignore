@@ -50,3 +50,4 @@ ansible-ui-airgapped-*.tgz
 
 # Local repo-seed scratch
 /.testrepo/
+/.demoshots/
