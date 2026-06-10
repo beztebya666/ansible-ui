@@ -9,6 +9,11 @@ exactly as they look in a terminal: real ANSI colour, real TTY behaviour, real `
 
 `Go` · `React + Vite` · `xterm.js` · `PostgreSQL` · `Docker` · `Kubernetes / Helm`
 
+### 🚀 [**Try the live demo →**](https://beztebya666.github.io/ansible-ui/)
+
+A full, in-browser sandbox — no signup, **your own private data** (nobody else can touch it),
+and a **Reset Demo** button to start fresh. Runs, workflows and the live terminal are all simulated client-side.
+
 </div>
 
 ---
