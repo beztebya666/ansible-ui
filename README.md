@@ -127,6 +127,44 @@ The runner is the only component that touches Ansible/git, so the Ansible versio
 in its image — full compatibility regardless of the host (here: a RHEL 7 host with no Python 3,
 Node, Go or Ansible installed; everything lives in containers).
 
+## Database (PostgreSQL) — required, and why
+
+ansible·ui keeps **all** of its state in **PostgreSQL**: projects, repositories, inventories,
+templates, the **full run history including every byte of terminal output** (for replay),
+schedules, workflows, users & API tokens, Key Store credentials (encrypted at rest), the audit
+trail, and host facts. There is **no SQLite / file / in-memory mode** — the api will not start
+without a reachable database.
+
+**Why a real database (and not an embedded one)?** Postgres isn't only storage — it's the
+**coordination layer for active-active HA**: the dispatch queue, leader election, and run-stream
+routing all live in transactional Postgres tables, so any number of `api` replicas can share one
+database and stay consistent. An embedded store couldn't provide that — which is exactly why it's required.
+
+**Do I have to install/manage Postgres myself? No.** Every turnkey path brings one up for you — so
+"running without Postgres" really means "without *you* setting one up":
+
+| Install path | What provides Postgres |
+|---|---|
+| **All-in-one** image (`ansible-ui`) | **bundled inside the one container** — zero setup, ideal for trials |
+| **Docker Compose** / **`docker-run.sh`** | a `postgres:16` container started alongside the api + runner |
+| **Helm** (default) | a bundled PostgreSQL Deployment + PVC (`postgres.enabled=true`) |
+
+**For production, point it at your own managed/HA Postgres** (recommended — and **required** if you
+run more than one api replica, since replicas must share a single database):
+
+```bash
+# Compose / docker-run.sh — set DATABASE_URL to your instance:
+DATABASE_URL="postgres://user:pass@db.internal:5432/ansible_ui?sslmode=require"
+
+# Helm — disable the bundled DB and supply your own:
+helm ... --set postgres.enabled=false \
+         --set externalDatabase.url="postgres://user:pass@host:5432/ansible_ui?sslmode=require"
+```
+
+The schema is created/migrated automatically on first start. It's lightweight (mostly text + JSON;
+the heaviest rows are stored run logs, capped by the **retention policy** in Settings). A recent
+PostgreSQL works well — the bundled images use **16**.
+
 ## Installation
 
 Pre-built images are published on **both** registries — use whichever you prefer (identical content):
