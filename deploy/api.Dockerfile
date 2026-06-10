@@ -21,6 +21,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/api ./cmd/api
 
 # --- runtime ----------------------------------------------------------
 FROM alpine:3.20
+LABEL org.opencontainers.image.source="https://github.com/beztebya666/ansible-ui" \
+      org.opencontainers.image.description="ansible-ui - API + embedded UI: a control plane for Ansible & IaC with a native live terminal"
 # Runs as root so it can manage the shared /data volume the runner also mounts.
 RUN apk add --no-cache ca-certificates wget
 COPY --from=build /out/api /usr/local/bin/api

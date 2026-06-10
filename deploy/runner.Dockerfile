@@ -99,5 +99,7 @@ ENV TERM=xterm-256color \
     ANSIBLE_ASYNC_DIR=/tmp/.ansible_async \
     RUNNER_ADDR=:8081
 
+LABEL org.opencontainers.image.source="https://github.com/beztebya666/ansible-ui" \
+      org.opencontainers.image.description="ansible-ui runner - executes Ansible/Terraform/OpenTofu/Pulumi/Bash/PowerShell/Python in a real PTY"
 EXPOSE 8081
 ENTRYPOINT ["/usr/local/bin/runner"]
