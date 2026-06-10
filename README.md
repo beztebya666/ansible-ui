@@ -127,49 +127,93 @@ The runner is the only component that touches Ansible/git, so the Ansible versio
 in its image — full compatibility regardless of the host (here: a RHEL 7 host with no Python 3,
 Node, Go or Ansible installed; everything lives in containers).
 
-## Quick start
+## Installation
 
-Requires only **Docker** (or a **Kubernetes** cluster). Nothing else on the host — no Node,
-Go, Python or Ansible. No docker-compose.
+Pre-built images are published on **both** registries — use whichever you prefer (identical content):
 
-### Docker
+| | Docker Hub | GitHub Container Registry |
+|---|---|---|
+| **all-in-one** (trials) | `docker.io/beztebya666/ansible-ui` | `ghcr.io/beztebya666/ansible-ui` |
+| **api** (UI + REST + WS) | `docker.io/beztebya666/ansible-ui-api` | `ghcr.io/beztebya666/ansible-ui-api` |
+| **runner** (executes playbooks) | `docker.io/beztebya666/ansible-ui-runner` | `ghcr.io/beztebya666/ansible-ui-runner` |
+
+Tags: **`v1.0.0`** (pinned) or **`latest`**.
+
+> **Two services, one job each** (plus Postgres for state):
+> - **api** — serves the web UI + REST + WebSocket on **:8080** (the only port you expose). It persists everything to Postgres and relays the runner's live output to your browser.
+> - **runner** — executes the automation (`ansible-playbook` / terraform / pulumi / bash / …) inside a **real PTY** and streams the raw bytes back. Never exposed publicly; scale it for more concurrent runs.
+>
+> They're split so the Ansible/IaC toolchain (big, version-sensitive) is isolated from the web tier, and so each can scale and be secured independently.
+
+Pick the shape that fits 👇 — on first load, **create the admin account** (first-run setup); the api seeds a **Demo** project so you can hit **New run → Hello World → Launch** immediately.
+
+### 1. Single container — quickest trial
+
+Everything (api + runner + **bundled Postgres**) in one container. Great for a kick-the-tyres demo, not for production.
 
 ```bash
-git clone <this repo> ansible-ui && cd ansible-ui
-make up        # builds the two images, then runs postgres + runner + api as 3 containers
+docker run -d --name ansible-ui -p 8080:8080 docker.io/beztebya666/ansible-ui:v1.0.0
+#   or:  ghcr.io/beztebya666/ansible-ui:v1.0.0
+# → http://localhost:8080   (add `-v aui-data:/data -v aui-db:/var/lib/postgresql/data` to persist)
 ```
 
-Open **http://localhost:8080** and **create the first admin account** (first-run setup).
-Config is via env (see [`deploy/docker-run.sh`](deploy/docker-run.sh)):
-`WEB_PORT`, `APP_SECRET`, `POSTGRES_PASSWORD`, `REGISTRY`, `TAG`.
+### 2. Docker Compose — recommended for a single host
 
-On first boot the api seeds a **Demo** project and starter templates — hit
-**New run → Hello World → Launch** and watch the terminal.
+Three services (api + runner + Postgres), declarative, with named volumes. See [`deploy/docker-compose.yml`](deploy/docker-compose.yml).
 
-To run from a **Git repository**: add it under **Repositories** (with a Key Store credential
-for private repos), **Sync** it, then create a **Project** from one of its subfolders — each
-run pulls the latest commit and installs any `requirements.yml` via `ansible-galaxy` first.
+```bash
+curl -O https://raw.githubusercontent.com/beztebya666/ansible-ui/main/deploy/docker-compose.yml
+docker compose up -d                       # → http://localhost:8080
+# GHCR instead of Docker Hub, or a custom port:
+REGISTRY=ghcr.io/beztebya666 WEB_PORT=8888 docker compose up -d
+```
 
-### Kubernetes (Helm)
+### 3. Plain `docker run` (no compose)
 
-The chart runs the api + runner as **one pod (runner is a sidecar)** sharing `/data`, with a
-bundled PostgreSQL (or point at your own via `externalDatabase.url`).
+Three independent containers via the helper script — same as Compose, no Compose needed.
+
+```bash
+APP_SECRET=$(openssl rand -hex 16) WEB_PORT=8080 \
+  REGISTRY=ghcr.io/beztebya666 bash deploy/docker-run.sh up      # `down` / `restart` too
+```
+
+### 4. Kubernetes (Helm) — one pod, runner as a sidecar
+
+api + runner in **one pod** sharing `/data`, with a bundled PostgreSQL (or point at your own). Images default to GHCR — switch with `--set image.registry=docker.io/beztebya666`.
+
+```bash
+helm upgrade --install ansible-ui deploy/helm/ansible-ui \
+  -n ansible-ui --create-namespace \
+  --set appSecret=$(openssl rand -hex 16)
+
+kubectl -n ansible-ui port-forward svc/ansible-ui-ansible-ui 8080:80   # → http://localhost:8080
+```
+
+### 5. Kubernetes (Helm) — scaled / active-active HA
+
+The api is **multi-replica safe** — leader-elected scheduler, a Postgres-backed dispatch queue, and **run-stream routing** (any replica can serve a run's live `/ws/runs/{id}` by tailing Postgres), so **no sticky sessions** are needed. Each replica carries its own runner sidecar, growing run capacity as you scale.
 
 ```bash
 helm upgrade --install ansible-ui deploy/helm/ansible-ui \
   -n ansible-ui --create-namespace \
   --set appSecret=$(openssl rand -hex 16) \
-  --set image.registry=ghcr.io/you        # your pushed images
-
-kubectl -n ansible-ui port-forward svc/ansible-ui 8080:80   # then open http://localhost:8080
+  --set replicaCount=3 \
+  --set postgres.enabled=false --set externalDatabase.url="postgres://…"   # use an HA/managed Postgres
 ```
 
-Everything is configurable in
-[`deploy/helm/ansible-ui/values.yaml`](deploy/helm/ansible-ui/values.yaml): images,
-`appSecret`/`existingSecret`, bundled vs external Postgres, persistence, Service type,
-Ingress + TLS, resources.
+Behind an Ingress/Service the three replicas load-balance freely. Everything is configurable in
+[`deploy/helm/ansible-ui/values.yaml`](deploy/helm/ansible-ui/values.yaml): images/registry, `appSecret`/`existingSecret`,
+bundled vs external Postgres, persistence, Service type, Ingress + TLS, resources, and every auth provider
+(LDAP/OIDC/SAML/RADIUS/TACACS+/GitHub/Bitbucket).
 
-### Air-gapped (offline) install
+### 6. Build from source
+
+```bash
+git clone https://github.com/beztebya666/ansible-ui && cd ansible-ui
+make up        # builds the two images locally, then runs postgres + runner + api
+```
+
+### 7. Air-gapped (offline) install
 
 For hosts with **no internet or registry access**, build a single self-contained
 tarball on a connected machine and copy it across:

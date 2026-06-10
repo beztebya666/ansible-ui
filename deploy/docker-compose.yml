@@ -1,0 +1,66 @@
+# ansible-ui via Docker Compose.
+#
+# Three services:
+#   db      - PostgreSQL: all state (projects, runs + full output, schedules, users, ...).
+#   runner  - executes the automation (ansible-playbook / terraform / pulumi / bash / ...)
+#             inside a real PTY and streams raw output back; never exposed publicly.
+#   api     - serves the web UI + REST + WebSocket on :8080 (the ONLY port you publish);
+#             persists to Postgres and relays the runner's live output to your browser.
+# api + runner share the /data volume (workspaces, inventories, artifacts).
+#
+# Images live on BOTH registries - choose with REGISTRY (default = Docker Hub):
+#   Docker Hub:  REGISTRY=docker.io/beztebya666   (default)
+#   GHCR:        REGISTRY=ghcr.io/beztebya666
+#   e.g.  REGISTRY=ghcr.io/beztebya666 TAG=v1.0.0 docker compose up -d
+#
+#   docker compose up -d   ->   open http://localhost:8080   (create the admin on first load)
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ansible
+      POSTGRES_PASSWORD: ansible
+      POSTGRES_DB: ansible_ui
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ansible -d ansible_ui"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  runner:
+    image: ${REGISTRY:-docker.io/beztebya666}/ansible-ui-runner:${TAG:-v1.0.0}
+    environment:
+      RUNNER_ADDR: ":8081"
+      DATA_DIR: /data
+    volumes:
+      - data:/data
+    restart: unless-stopped
+
+  api:
+    image: ${REGISTRY:-docker.io/beztebya666}/ansible-ui-api:${TAG:-v1.0.0}
+    depends_on:
+      db:
+        condition: service_healthy
+      runner:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgres://ansible:ansible@db:5432/ansible_ui?sslmode=disable
+      RUNNER_URL: ws://runner:8081
+      RUNNER_HTTP: http://runner:8081
+      DATA_DIR: /data
+      # CHANGE THIS - it encrypts Key Store credentials at rest.
+      APP_SECRET: change-me-in-production
+      SEED_DEMO: "true"
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    volumes:
+      - data:/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  data:

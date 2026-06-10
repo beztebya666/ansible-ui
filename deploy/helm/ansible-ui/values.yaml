@@ -2,18 +2,21 @@
 # The app is two containers in one pod: `api` (serves the UI + REST + WS) and a
 # `runner` sidecar (executes ansible-playbook). They share the /data volume.
 
-# Multi-replica safe: the scheduler is leader-elected and the dispatch queue +
-# runner capacity live in Postgres (only the leader dispatches, capacity is shared).
-# The one remaining caveat for active-active >1 replicas is run-stream routing —
-# a run's /ws/runs/{id} must reach the replica streaming it (use sticky sessions on
-# the ingress). See ROADMAP "High availability".
+# Multi-replica safe (true active-active): the scheduler is leader-elected, the
+# dispatch queue + runner capacity live in Postgres (only the leader dispatches),
+# and run-stream routing lets /ws/runs/{id} be served from ANY replica (a replica
+# tails the Postgres-persisted output when it isn't the one streaming the run).
+# So replicaCount > 1 needs NO sticky sessions. Use an external/HA Postgres in prod.
 replicaCount: 1
 
 image:
-  registry: ansible-ui     # set to your registry, e.g. ghcr.io/acme
-  apiRepository: api
-  runnerRepository: runner
-  tag: latest
+  # Published on BOTH registries — switch by changing `registry`:
+  #   GHCR:       ghcr.io/beztebya666   (default)
+  #   Docker Hub: docker.io/beztebya666
+  registry: ghcr.io/beztebya666
+  apiRepository: ansible-ui-api
+  runnerRepository: ansible-ui-runner
+  tag: v1.0.0
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 

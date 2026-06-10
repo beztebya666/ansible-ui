@@ -365,8 +365,9 @@ ALTER TABLE integrations ADD COLUMN IF NOT EXISTS auth_secret bytea;
 ALTER TABLE integrations ADD COLUMN IF NOT EXISTS pass_payload boolean NOT NULL DEFAULT false;
 ALTER TABLE integrations ADD COLUMN IF NOT EXISTS aliases jsonb NOT NULL DEFAULT '[]';
 -- An integration can trigger a workflow instead of a template (one of the two).
+-- NOTE: the workflow_id FK is added AFTER the workflows table is created (below),
+-- so a fresh DB doesn't ALTER-reference a table that does not exist yet.
 ALTER TABLE integrations ALTER COLUMN template_id DROP NOT NULL;
-ALTER TABLE integrations ADD COLUMN IF NOT EXISTS workflow_id text REFERENCES workflows(id) ON DELETE CASCADE;
 -- one-time ("run once") schedules
 ALTER TABLE schedules ADD COLUMN IF NOT EXISTS once boolean NOT NULL DEFAULT false;
 -- multi-tenant: scope shared resources to a project (NULL = shared across all)
@@ -537,6 +538,9 @@ CREATE INDEX IF NOT EXISTS workflow_versions_wf_idx ON workflow_versions(workflo
 -- A schedule can target a workflow instead of a template (one of the two).
 ALTER TABLE schedules ALTER COLUMN template_id DROP NOT NULL;
 ALTER TABLE schedules ADD COLUMN IF NOT EXISTS workflow_id text REFERENCES workflows(id) ON DELETE CASCADE;
+-- integrations workflow_id FK — added here (after CREATE TABLE workflows above) so a
+-- FRESH database can satisfy the foreign key; on an existing DB this is a no-op.
+ALTER TABLE integrations ADD COLUMN IF NOT EXISTS workflow_id text REFERENCES workflows(id) ON DELETE CASCADE;
 -- Notification channels can be scoped to one project (NULL = all projects).
 ALTER TABLE notification_channels ADD COLUMN IF NOT EXISTS project_id text;
 
